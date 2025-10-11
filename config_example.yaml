@@ -1,0 +1,56 @@
+# Example configuration for Cross-Attention Plant Disease Classification
+
+# Model Architecture
+image_backbone: "resnet50"  # resnet50, resnet101, efficientnet-b0, etc.
+text_encoder: "bert-base-uncased"  # BERT model for text encoding
+feature_dim: 768  # Feature dimension for both image and text
+num_cross_attention_layers: 4  # Number of cross-attention layers
+num_attention_heads: 12  # Number of attention heads
+dropout_rate: 0.1  # Dropout rate
+fusion_type: "adaptive"  # concat, adaptive, bilinear, attention
+
+# Dataset Configuration
+dataset_path: "."  # Path to dataset (current directory)
+selected_classes: []  # Empty means use all classes, or specify list like ["apple black rot", "tomato leaf"]
+text_selection_strategy: "random"  # random, first, all
+train_split: 0.7  # Training split ratio
+val_split: 0.15  # Validation split ratio
+
+# Training Parameters
+batch_size: 32
+learning_rate: 0.0001
+num_epochs: 50
+weight_decay: 0.01
+scheduler_type: "cosine"  # cosine, step, plateau
+warmup_epochs: 5
+
+# Loss Function
+loss_function: "crossentropy"  # crossentropy, focal, label_smoothing
+focal_alpha: 1.0  # For focal loss
+focal_gamma: 2.0  # For focal loss
+label_smoothing: 0.1  # For label smoothing
+
+# Training Configuration
+device: "auto"  # auto, cpu, cuda
+mixed_precision: true
+gradient_clip_norm: 1.0
+accumulate_grad_batches: 1
+eval_frequency: 5  # Evaluate every N epochs
+save_frequency: 10  # Save checkpoint every N epochs
+
+# Data Augmentation
+use_augmentation: true
+augmentation_strength: 0.8  # 0.0 to 1.0
+
+# Output Directories
+output_dir: "./outputs"
+checkpoint_dir: "./checkpoints"
+
+# Logging and Evaluation
+save_predictions: true
+save_attention_maps: false  # Set to true for visualization (slower)
+compute_class_metrics: true
+
+# Class Information (will be auto-populated if empty)
+num_classes: 0  # Will be set based on selected_classes or auto-detected
+class_names: []  # Will be populated automatically
