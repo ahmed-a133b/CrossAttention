@@ -110,8 +110,9 @@ class TextEncoder(nn.Module):
         if isinstance(texts, tuple):
             texts = list(texts)
         
-        if isinstance(texts, list):
-            # Tokenize texts
+        # Check if texts are raw strings or already tokenized
+        if isinstance(texts, (list, tuple)) and len(texts) > 0 and isinstance(texts[0], str):
+            # Raw text strings - need to tokenize
             encoded = self.tokenizer(
                 texts, 
                 padding=True, 
@@ -124,9 +125,12 @@ class TextEncoder(nn.Module):
             device = next(self.parameters()).device
             input_ids = encoded['input_ids'].to(device)
             attention_mask = encoded['attention_mask'].to(device)
-        else:
+        elif isinstance(texts, dict):
+            # Already tokenized - just move to device
             input_ids = texts['input_ids']
             attention_mask = texts['attention_mask']
+        else:
+            raise ValueError(f"Unsupported text input format: {type(texts)}")
         
         # Get BERT outputs
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
