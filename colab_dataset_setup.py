@@ -14,15 +14,43 @@ import shutil
 class ColabDatasetManager:
     """Manages dataset download and setup for Google Colab"""
     
-    def __init__(self, base_path: str = "/content/plant_disease_data"):
+    def __init__(self, base_path: str = "/content/plant_disease_data", dataset_name: Optional[str] = None):
         """
         Args:
-            base_path: Base directory to store dataset (will contain class folders directly)
+            base_path: Base directory to store dataset.
+            dataset_name: Optional name of the dataset subdirectory (e.g., 'plantwild').
+                          If None, it will try to auto-detect.
         """
         self.base_path = base_path
-        # For the simple structure, class folders are directly in base_path
-        self.dataset_path = base_path
-        self.images_path = base_path
+        
+        if dataset_name:
+            self.dataset_path = os.path.join(base_path, dataset_name)
+        else:
+            # Auto-detect dataset path
+            self.dataset_path = self._find_dataset_path()
+
+        # Define images path based on common structures
+        if os.path.exists(os.path.join(self.dataset_path, "images")):
+            self.images_path = os.path.join(self.dataset_path, "images")
+        else:
+            self.images_path = self.dataset_path
+        
+    def _find_dataset_path(self) -> str:
+        """Automatically find the main dataset directory."""
+        if not os.path.exists(self.base_path):
+            return self.base_path
+
+        items = os.listdir(self.base_path)
+        # Exclude common non-dataset directories
+        potential_datasets = [d for d in items if os.path.isdir(os.path.join(self.base_path, d)) and not d.startswith('.') and d not in ['__pycache__']]
+        
+        # If there's a single directory, assume it's the dataset directory
+        if len(potential_datasets) == 1:
+            print(f"Auto-detected dataset directory: {potential_datasets[0]}")
+            return os.path.join(self.base_path, potential_datasets[0])
+        
+        # Default to base path if auto-detection is unclear
+        return self.base_path
         
     def setup_directories(self):
         """Create necessary directories"""
@@ -170,6 +198,7 @@ class ColabDatasetManager:
         possible_prompts_files = [
             os.path.join(self.base_path, "plantwild_prompts.json"),
             os.path.join(self.dataset_path, "plantwild_prompts.json"),
+            os.path.join(self.images_path, "plantwild_prompts.json"),
             "plantwild_prompts.json"  # In current directory
         ]
         
@@ -188,10 +217,11 @@ class ColabDatasetManager:
             except:
                 pass
         
-        # For simple structure, class folders are directly in base_path
-        if os.path.exists(self.base_path):
-            all_items = os.listdir(self.base_path)
-            directories = [d for d in all_items if os.path.isdir(os.path.join(self.base_path, d))]
+        # Check for class folders in the images path
+        images_found = False
+        if os.path.exists(self.images_path):
+            all_items = os.listdir(self.images_path)
+            directories = [d for d in all_items if os.path.isdir(os.path.join(self.images_path, d))]
             
             # Filter out system directories
             excluded_dirs = {'__pycache__', '.git', 'checkpoints', 'logs', 'results', '.ipynb_checkpoints'}
@@ -201,7 +231,7 @@ class ColabDatasetManager:
             
             # Count images in each class directory
             for class_dir in class_dirs:
-                class_path = os.path.join(self.base_path, class_dir)
+                class_path = os.path.join(self.images_path, class_dir)
                 try:
                     files = os.listdir(class_path)
                     image_files = [f for f in files 
@@ -214,9 +244,13 @@ class ColabDatasetManager:
         
         info['images_path_exists'] = images_found
         
-        # Check validity - we need either prompts file OR images, not necessarily both
+        # Update num_classes based on image folders if prompts are missing
+        if not info['prompts_file_exists'] and images_found:
+            info['num_classes'] = len(info['class_distribution'])
+
+        # Check validity - we need images to proceed
         is_valid = (info['dataset_path_exists'] and 
-                   (info['images_path_exists'] or info['prompts_file_exists']) and 
+                   info['images_path_exists'] and 
                    info['total_images'] > 0)
         
         return is_valid, info
