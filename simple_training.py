@@ -10,7 +10,7 @@ import json
 
 # Import from local files
 from dataset_loader import PlantDiseaseDataset
-from cross_attention_model import CrossAttentionModel
+from cross_attention_model import CrossAttentionClassifier
 from trainer import CrossAttentionTrainer
 from config_manager import ConfigManager
 
@@ -99,14 +99,23 @@ def create_datasets_and_model(loader, config, classes_file, prompts_file):
     
     print(f"✅ Dataset created with {len(dataset)} samples")
     
+    # Create model config dictionary
+    model_config = {
+        'num_classes': config.num_classes,
+        'image_backbone': config.image_backbone,
+        'text_model': config.text_model,
+        'fusion_type': config.fusion_type,
+        'hidden_dim': config.hidden_dim,
+        'feature_dim': config.feature_dim,
+        'patch_size': config.patch_size,
+        'max_text_length': config.max_text_length,
+        'num_attention_heads': config.num_attention_heads,
+        'num_cross_attention_layers': config.num_cross_attention_layers,
+        'dropout': config.dropout
+    }
+    
     # Create model
-    model = CrossAttentionModel(
-        num_classes=config.num_classes,
-        visual_encoder=config.image_backbone,
-        text_encoder=config.text_model,
-        fusion_method=config.fusion_type,
-        hidden_dim=config.hidden_dim
-    )
+    model = CrossAttentionClassifier(model_config)
     
     print(f"✅ Model created: {config.image_backbone} + {config.text_model}")
     
