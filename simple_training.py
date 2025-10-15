@@ -96,8 +96,8 @@ def create_datasets_and_model(loader, config, classes_file, prompts_file):
     # Create dataset
     dataset = PlantDiseaseDataset(
         root_dir=loader.images_path,
-        classes_file=classes_file,
         prompts_file=prompts_file,
+        split='train',  # Default split
         transform=None  # Basic transforms will be added
     )
     
