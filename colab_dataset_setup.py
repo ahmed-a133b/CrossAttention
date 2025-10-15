@@ -40,14 +40,27 @@ class ColabDatasetManager:
         if not os.path.exists(self.base_path):
             return self.base_path
 
-        items = os.listdir(self.base_path)
-        # Exclude common non-dataset directories
-        potential_datasets = [d for d in items if os.path.isdir(os.path.join(self.base_path, d)) and not d.startswith('.') and d not in ['__pycache__']]
+        # Check for common dataset subdirectories
+        common_dataset_names = ['plantwild', 'plantdoc', 'plantvillage', 'dataset', 'data']
         
-        # If there's a single directory, assume it's the dataset directory
-        if len(potential_datasets) == 1:
-            print(f"Auto-detected dataset directory: {potential_datasets[0]}")
-            return os.path.join(self.base_path, potential_datasets[0])
+        for name in common_dataset_names:
+            potential_path = os.path.join(self.base_path, name)
+            if os.path.exists(potential_path):
+                print(f"Found dataset directory: {name}")
+                return potential_path
+        
+        # If no common names found, try to detect automatically
+        try:
+            items = os.listdir(self.base_path)
+            # Exclude common non-dataset directories
+            potential_datasets = [d for d in items if os.path.isdir(os.path.join(self.base_path, d)) and not d.startswith('.') and d not in ['__pycache__']]
+            
+            # If there's a single directory, assume it's the dataset directory
+            if len(potential_datasets) == 1:
+                print(f"Auto-detected dataset directory: {potential_datasets[0]}")
+                return os.path.join(self.base_path, potential_datasets[0])
+        except:
+            pass
         
         # Default to base path if auto-detection is unclear
         return self.base_path
@@ -279,6 +292,56 @@ class ColabDatasetManager:
         
         return is_valid, info
 
+def debug_dataset_structure(base_path: str = "/content/plant_disease_data"):
+    """Debug function to show the actual dataset structure"""
+    print("🔍 DEBUGGING DATASET STRUCTURE")
+    print("=" * 60)
+    
+    def show_directory_tree(path, max_depth=3, current_depth=0):
+        if current_depth > max_depth or not os.path.exists(path):
+            return
+        
+        indent = "  " * current_depth
+        print(f"{indent}{os.path.basename(path)}/")
+        
+        try:
+            items = os.listdir(path)[:10]  # Limit to first 10 items
+            for item in sorted(items):
+                item_path = os.path.join(path, item)
+                if os.path.isdir(item_path):
+                    show_directory_tree(item_path, max_depth, current_depth + 1)
+                else:
+                    print(f"{indent}  {item}")
+            if len(os.listdir(path)) > 10:
+                print(f"{indent}  ... ({len(os.listdir(path)) - 10} more items)")
+        except PermissionError:
+            print(f"{indent}  [Permission Denied]")
+    
+    show_directory_tree(base_path)
+    print("=" * 60)
+
+def setup_plantwild_dataset(base_path: str = "/content/plant_disease_data"):
+    """Specifically set up PlantWild dataset structure"""
+    print("Setting up PlantWild Dataset Structure")
+    print("=" * 50)
+    
+    # Debug the current structure
+    debug_dataset_structure(base_path)
+    
+    # Create dataset manager with explicit plantwild dataset name
+    dataset_manager = ColabDatasetManager(base_path=base_path, dataset_name="plantwild")
+    
+    print(f"📁 Dataset paths:")
+    print(f"   Base: {dataset_manager.base_path}")
+    print(f"   Dataset: {dataset_manager.dataset_path}")
+    print(f"   Images: {dataset_manager.images_path}")
+    
+    # Verify the setup
+    is_valid, info = dataset_manager.verify_dataset()
+    dataset_manager.print_dataset_info()
+    
+    return dataset_manager
+
 def setup_colab_environment():
     """Set up the complete environment for Google Colab"""
     
@@ -362,6 +425,8 @@ if __name__ == "__main__":
     # Example setup
     dataset_manager = setup_colab_environment()
     print("\n🚀 Environment setup complete!")
+    print("\nFor PlantWild dataset specifically, use:")
+    print("dataset_manager = setup_plantwild_dataset('/content/plant_disease_data')")
     print("\nNext steps:")
     print("1. Load your dataset using one of the methods above")
     print("2. Verify the dataset with dataset_manager.print_dataset_info()")
