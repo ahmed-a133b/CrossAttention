@@ -11,7 +11,6 @@ import json
 # Import from local files
 from dataset_loader import PlantDiseaseDataset
 from cross_attention_model import CrossAttentionClassifier
-from trainer import Trainer
 from config_manager import ConfigManager
 
 def setup_training_from_loader(loader, config_overrides=None):
@@ -43,6 +42,11 @@ def setup_training_from_loader(loader, config_overrides=None):
     config.text_model = "bert-base-uncased"
     config.fusion_type = "attention"
     config.hidden_dim = 512
+    
+    # Add required paths for Trainer class
+    config.device = "cuda" if torch.cuda.is_available() else "cpu"
+    config.output_dir = "/content/outputs"
+    config.checkpoint_dir = "/content/checkpoints"
     
     # Apply overrides if provided
     if config_overrides:
@@ -94,7 +98,7 @@ def create_datasets_and_model(loader, config, classes_file, prompts_file):
         root_dir=loader.images_path,
         classes_file=classes_file,
         prompts_file=prompts_file,
-        transform=None  # Will be set by trainer
+        transform=None  # Basic transforms will be added
     )
     
     print(f"✅ Dataset created with {len(dataset)} samples")
@@ -123,7 +127,7 @@ def create_datasets_and_model(loader, config, classes_file, prompts_file):
 
 def start_training(loader, config_overrides=None):
     """
-    Complete training pipeline
+    Complete training pipeline using simplified approach
     
     Args:
         loader: PlantWildV2Loader instance
@@ -135,16 +139,102 @@ def start_training(loader, config_overrides=None):
     # Create datasets and model
     dataset, model = create_datasets_and_model(loader, config, classes_file, prompts_file)
     
-    # Create trainer
-    trainer = CrossAttentionTrainer(config)
-    
-    # Start training
-    print("\n🚀 Starting Training...")
+    # Use simplified training instead of complex Trainer class
+    print("\n🚀 Starting Simplified Training...")
     print("=" * 50)
     
-    trainer.train(model, dataset)
+    # Simple training loop
+    trained_model = simple_train_loop(model, dataset, config, device)
     
-    return trainer, model
+    return trained_model, config
+
+def simple_train_loop(model, dataset, config, device):
+    """
+    Simplified training loop without complex trainer class
+    """
+    from torch.utils.data import DataLoader, random_split
+    import torch.optim as optimizer_module
+    
+    # Move model to device
+    model = model.to(device)
+    
+    # Create data splits
+    train_size = int(0.8 * len(dataset))
+    val_size = len(dataset) - train_size
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+    
+    # Create data loaders
+    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False)
+    
+    # Setup optimizer and loss function
+    optimizer = optimizer_module.AdamW(model.parameters(), lr=config.learning_rate)
+    criterion = torch.nn.CrossEntropyLoss()
+    
+    print(f"📊 Training setup:")
+    print(f"   Train samples: {len(train_dataset)}")
+    print(f"   Val samples: {len(val_dataset)}")
+    print(f"   Batch size: {config.batch_size}")
+    print(f"   Learning rate: {config.learning_rate}")
+    print(f"   Device: {device}")
+    
+    # Training loop
+    model.train()
+    for epoch in range(config.num_epochs):
+        total_loss = 0.0
+        correct = 0
+        total = 0
+        
+        for batch_idx, (images, texts, labels) in enumerate(train_loader):
+            images, texts, labels = images.to(device), texts, labels.to(device)
+            
+            # Forward pass
+            optimizer.zero_grad()
+            outputs = model(images, texts)
+            loss = criterion(outputs, labels)
+            
+            # Backward pass
+            loss.backward()
+            optimizer.step()
+            
+            # Statistics
+            total_loss += loss.item()
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+            
+            if batch_idx % 10 == 0:
+                print(f'Epoch {epoch+1}/{config.num_epochs}, Batch {batch_idx}, Loss: {loss.item():.4f}')
+        
+        # Epoch summary
+        epoch_loss = total_loss / len(train_loader)
+        epoch_acc = 100 * correct / total
+        print(f'Epoch {epoch+1}/{config.num_epochs}: Loss: {epoch_loss:.4f}, Accuracy: {epoch_acc:.2f}%')
+        
+        # Simple validation every few epochs
+        if (epoch + 1) % 5 == 0:
+            val_acc = validate_model(model, val_loader, device)
+            print(f'Validation Accuracy: {val_acc:.2f}%')
+    
+    print("✅ Training completed!")
+    return model
+
+def validate_model(model, val_loader, device):
+    """Simple validation function"""
+    model.eval()
+    correct = 0
+    total = 0
+    
+    with torch.no_grad():
+        for images, texts, labels in val_loader:
+            images, texts, labels = images.to(device), texts, labels.to(device)
+            outputs = model(images, texts)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    
+    model.train()
+    return 100 * correct / total
 
 # Quick training function
 def quick_train(drive_file_id: str, epochs: int = 20, batch_size: int = 16):
@@ -173,9 +263,9 @@ def quick_train(drive_file_id: str, epochs: int = 20, batch_size: int = 16):
     }
     
     # Start training
-    trainer, model = start_training(loader, overrides)
+    model, config = start_training(loader, overrides)
     
-    return trainer, model
+    return model, config
 
 if __name__ == "__main__":
     print("🎯 Cross-Attention Training Setup")
