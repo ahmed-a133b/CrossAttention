@@ -104,6 +104,10 @@ class TextEncoder(nn.Module):
         Args:
             texts: List of text strings or pre-tokenized inputs
         """
+        # Convert tuple to list if needed
+        if isinstance(texts, tuple):
+            texts = list(texts)
+        
         if isinstance(texts, list):
             # Tokenize texts
             encoded = self.tokenizer(
