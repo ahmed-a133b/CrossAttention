@@ -1,433 +1,265 @@
 """
-Google Colab Dataset Setup for Cross-Attention Plant Disease Classification
-This module provides utilities to download and set up the PlantWild dataset on Google Colab
+Simple PlantWild v2 Dataset Loader for Google Colab
+Downloads and extracts plantwild_v2.zip from Google Drive
 """
 
 import os
 import zipfile
-import urllib.request
 import gdown
-from typing import Optional, Tuple
+from typing import Tuple
 import json
-import shutil
 
-class ColabDatasetManager:
-    """Manages dataset download and setup for Google Colab"""
+class PlantWildV2Loader:
+    """Simple loader for PlantWild v2 dataset from Google Drive"""
     
-    def __init__(self, base_path: str = "/content/plant_disease_data", dataset_name: Optional[str] = None):
+    def __init__(self, base_path: str = "/content/plant_disease_data"):
         """
         Args:
-            base_path: Base directory to store dataset.
-            dataset_name: Optional name of the dataset subdirectory (e.g., 'plantwild').
-                          If None, it will try to auto-detect.
+            base_path: Where to extract the dataset
         """
         self.base_path = base_path
+        self.dataset_path = None
+        self.images_path = None
         
-        if dataset_name:
-            self.dataset_path = os.path.join(base_path, dataset_name)
-        else:
-            # Auto-detect dataset path
-            self.dataset_path = self._find_dataset_path()
-
-        # Define images path based on common structures
-        if os.path.exists(os.path.join(self.dataset_path, "images")):
-            self.images_path = os.path.join(self.dataset_path, "images")
-        else:
-            self.images_path = self.dataset_path
+    def download_and_extract(self, drive_file_id: str):
+        """
+        Download plantwild_v2.zip from Google Drive and extract it
         
-    def _find_dataset_path(self) -> str:
-        """Automatically find the main dataset directory."""
-        if not os.path.exists(self.base_path):
-            return self.base_path
-
-        # Check for common dataset subdirectories
-        common_dataset_names = ['plantwild', 'plantdoc', 'plantvillage', 'dataset', 'data']
-        
-        for name in common_dataset_names:
-            potential_path = os.path.join(self.base_path, name)
-            if os.path.exists(potential_path):
-                print(f"Found dataset directory: {name}")
-                return potential_path
-        
-        # If no common names found, try to detect automatically
-        try:
-            items = os.listdir(self.base_path)
-            # Exclude common non-dataset directories
-            potential_datasets = [d for d in items if os.path.isdir(os.path.join(self.base_path, d)) and not d.startswith('.') and d not in ['__pycache__']]
+        Args:
+            drive_file_id: Google Drive file ID for plantwild_v2.zip
             
-            # If there's a single directory, assume it's the dataset directory
-            if len(potential_datasets) == 1:
-                print(f"Auto-detected dataset directory: {potential_datasets[0]}")
-                return os.path.join(self.base_path, potential_datasets[0])
-        except:
-            pass
+        Returns:
+            bool: Success status
+        """
+        print("🚀 Starting PlantWild v2 Download and Setup")
+        print("=" * 50)
         
-        # Default to base path if auto-detection is unclear
-        return self.base_path
-        
-    def setup_directories(self):
-        """Create necessary directories"""
+        # Create base directory
         os.makedirs(self.base_path, exist_ok=True)
-        os.makedirs(self.dataset_path, exist_ok=True)
-        os.makedirs(self.images_path, exist_ok=True)
-        print(f"Created directories at {self.base_path}")
-    
-    def download_from_google_drive(self, file_id: str, output_path: str, extract: bool = True):
-        """
-        Download dataset from Google Drive
         
-        Args:
-            file_id: Google Drive file ID
-            output_path: Path to save the downloaded file
-            extract: Whether to extract if it's a zip file
-        """
-        print(f"Downloading from Google Drive...")
+        # Download zip file
+        zip_path = os.path.join(self.base_path, "plantwild_v2.zip")
+        print(f"📥 Downloading plantwild_v2.zip...")
         
         try:
-            gdown.download(f"https://drive.google.com/uc?id={file_id}", output_path, quiet=False)
-            
-            if extract and output_path.endswith('.zip'):
-                print("Extracting dataset...")
-                with zipfile.ZipFile(output_path, 'r') as zip_ref:
-                    zip_ref.extractall(self.base_path)
-                
-                # Remove the zip file after extraction
-                os.remove(output_path)
-                print("Extraction completed and zip file removed")
-            
-            return True
+            gdown.download(f"https://drive.google.com/uc?id={drive_file_id}", zip_path, quiet=False)
+            print(f"✅ Download completed: {zip_path}")
         except Exception as e:
-            print(f"Error downloading from Google Drive: {e}")
+            print(f"❌ Download failed: {e}")
             return False
-    
-    def download_from_url(self, url: str, output_path: str, extract: bool = True):
-        """
-        Download dataset from direct URL
         
-        Args:
-            url: Direct URL to download from
-            output_path: Path to save the downloaded file
-            extract: Whether to extract if it's a zip file
-        """
-        print(f"Downloading from {url}...")
-        
+        # Extract zip file
+        print(f"📦 Extracting dataset...")
         try:
-            urllib.request.urlretrieve(url, output_path)
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(self.base_path)
             
-            if extract and output_path.endswith('.zip'):
-                print("Extracting dataset...")
-                with zipfile.ZipFile(output_path, 'r') as zip_ref:
-                    zip_ref.extractall(self.base_path)
-                
-                os.remove(output_path)
-                print("Extraction completed")
+            # Remove zip file after extraction
+            os.remove(zip_path)
+            print(f"✅ Extraction completed and zip file removed")
             
-            return True
         except Exception as e:
-            print(f"Error downloading from URL: {e}")
+            print(f"❌ Extraction failed: {e}")
             return False
-    
-    def upload_from_local(self, source_path: str):
-        """
-        Upload dataset from local files (if running locally)
         
-        Args:
-            source_path: Path to local dataset
-        """
-        if os.path.exists(source_path):
-            shutil.copytree(source_path, self.dataset_path, dirs_exist_ok=True)
-            print(f"Copied dataset from {source_path} to {self.dataset_path}")
-            return True
-        else:
-            print(f"Source path {source_path} does not exist")
-            return False
-    
-    def create_sample_dataset(self, num_classes: int = 5, samples_per_class: int = 10):
-        """
-        Create a small sample dataset for testing (downloads sample images)
-        
-        Args:
-            num_classes: Number of classes to create
-            samples_per_class: Number of sample images per class
-        """
-        print(f"Creating sample dataset with {num_classes} classes and {samples_per_class} samples each...")
-        
-        # Sample class names and create directories
-        sample_classes = [
-            "apple_black_rot", "apple_scab", "tomato_leaf_mold", 
-            "grape_leaf_blight", "corn_rust"
-        ][:num_classes]
-        
-        # Create sample prompts
-        sample_prompts = {}
-        for class_name in sample_classes:
-            class_dir = os.path.join(self.images_path, class_name)
-            os.makedirs(class_dir, exist_ok=True)
-            
-            # Create sample text prompts
-            sample_prompts[class_name] = [
-                f"{class_name.replace('_', ' ')} shows typical disease symptoms on plant leaves",
-                f"Plant affected by {class_name.replace('_', ' ')} displaying characteristic lesions",
-                f"{class_name.replace('_', ' ')} infection visible as discoloration on plant tissue",
-                f"Symptoms of {class_name.replace('_', ' ')} appearing as spots or marks",
-                f"{class_name.replace('_', ' ')} disease manifestation on plant surface"
-            ]
-            
-            # Create placeholder images (you'll need to replace with actual images)
-            for i in range(samples_per_class):
-                # Create a simple placeholder image file
-                placeholder_path = os.path.join(class_dir, f"sample_{i:03d}.jpg")
-                # Note: In actual use, you'd put real images here
-                with open(placeholder_path, 'w') as f:
-                    f.write("# Placeholder - replace with actual image")
-        
-        # Save sample prompts
-        prompts_file = os.path.join(self.base_path, "plantwild_prompts.json")
-        with open(prompts_file, 'w') as f:
-            json.dump(sample_prompts, f, indent=2)
-        
-        print(f"Sample dataset created at {self.dataset_path}")
-        print(f"Sample prompts saved to {prompts_file}")
+        # Auto-detect the extracted folder structure
+        self._detect_paths()
         
         return True
     
+    def _detect_paths(self):
+        """Auto-detect where the dataset was extracted"""
+        print("🔍 Detecting dataset structure...")
+        
+        # Look for common folder patterns
+        possible_paths = [
+            os.path.join(self.base_path, "plantwild_v2"),
+            os.path.join(self.base_path, "plantwild"),
+            os.path.join(self.base_path, "PlantWild"),
+            os.path.join(self.base_path, "dataset"),
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                self.dataset_path = path
+                print(f"📁 Found dataset folder: {os.path.basename(path)}")
+                break
+        
+        # If no specific folder found, use base path
+        if self.dataset_path is None:
+            self.dataset_path = self.base_path
+            print(f"📁 Using base path as dataset folder")
+        
+        # Look for images folder
+        images_candidates = [
+            os.path.join(self.dataset_path, "images"),
+            os.path.join(self.dataset_path, "Images"),
+            self.dataset_path  # Class folders might be directly in dataset folder
+        ]
+        
+        for img_path in images_candidates:
+            if os.path.exists(img_path):
+                # Check if this path contains class folders
+                try:
+                    items = os.listdir(img_path)
+                    class_folders = [item for item in items if os.path.isdir(os.path.join(img_path, item))]
+                    if class_folders:
+                        self.images_path = img_path
+                        print(f"📸 Found images folder: {os.path.relpath(img_path, self.base_path)}")
+                        break
+                except:
+                    continue
+        
+        if self.images_path is None:
+            self.images_path = self.dataset_path
+            print(f"📸 Using dataset folder for images")
+    
     def verify_dataset(self) -> Tuple[bool, dict]:
         """
-        Verify that the dataset is properly set up
+        Verify the dataset is properly loaded
         
         Returns:
             Tuple of (is_valid, info_dict)
         """
+        if self.dataset_path is None:
+            return False, {"error": "Dataset not loaded yet"}
+        
         info = {
-            'dataset_path_exists': os.path.exists(self.dataset_path),
-            'images_path_exists': os.path.exists(self.images_path),
+            'dataset_path': self.dataset_path,
+            'images_path': self.images_path,
             'prompts_file_exists': False,
+            'classes_file_exists': False,
             'num_classes': 0,
             'total_images': 0,
             'class_distribution': {}
         }
         
-        # Check for prompts file in different locations
-        possible_prompts_files = [
-            os.path.join(self.base_path, "plantwild_prompts.json"),
+        # Check for prompts file
+        prompts_files = [
             os.path.join(self.dataset_path, "plantwild_prompts.json"),
             os.path.join(self.images_path, "plantwild_prompts.json"),
-            "plantwild_prompts.json"  # In current directory
+            os.path.join(self.base_path, "plantwild_prompts.json")
         ]
         
-        prompts_file = None
-        for pf in possible_prompts_files:
+        for pf in prompts_files:
             if os.path.exists(pf):
-                prompts_file = pf
                 info['prompts_file_exists'] = True
+                try:
+                    with open(pf, 'r') as f:
+                        prompts_data = json.load(f)
+                    info['num_classes'] = len(prompts_data)
+                    print(f"📝 Found prompts file: {os.path.basename(pf)}")
+                except:
+                    pass
                 break
         
-        if info['prompts_file_exists']:
+        # Check for classes file
+        classes_files = [
+            os.path.join(self.dataset_path, "classes.txt"),
+            os.path.join(self.images_path, "classes.txt"),
+            os.path.join(self.base_path, "classes.txt")
+        ]
+        
+        for cf in classes_files:
+            if os.path.exists(cf):
+                info['classes_file_exists'] = True
+                print(f"📋 Found classes file: {os.path.basename(cf)}")
+                break
+        
+        # Count images in class folders
+        if os.path.exists(self.images_path):
             try:
-                with open(prompts_file, 'r') as f:
-                    prompts_data = json.load(f)
-                info['num_classes'] = len(prompts_data)
+                items = os.listdir(self.images_path)
+                class_folders = [item for item in items if os.path.isdir(os.path.join(self.images_path, item))]
+                
+                for class_folder in class_folders:
+                    class_path = os.path.join(self.images_path, class_folder)
+                    try:
+                        files = os.listdir(class_path)
+                        image_files = [f for f in files 
+                                     if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.tiff'))]
+                        if image_files:
+                            info['class_distribution'][class_folder] = len(image_files)
+                            info['total_images'] += len(image_files)
+                    except:
+                        continue
+                
+                if not info['num_classes']:  # If prompts didn't give us class count
+                    info['num_classes'] = len(info['class_distribution'])
+                    
             except:
                 pass
         
-        # Check for class folders in the images path
-        images_found = False
-        if os.path.exists(self.images_path):
-            all_items = os.listdir(self.images_path)
-            directories = [d for d in all_items if os.path.isdir(os.path.join(self.images_path, d))]
-            
-            # Filter out system directories
-            excluded_dirs = {'__pycache__', '.git', 'checkpoints', 'logs', 'results', '.ipynb_checkpoints'}
-            class_dirs = [d for d in directories if d not in excluded_dirs]
-            
-            images_found = len(class_dirs) > 0
-            
-            # Count images in each class directory
-            for class_dir in class_dirs:
-                class_path = os.path.join(self.images_path, class_dir)
-                try:
-                    files = os.listdir(class_path)
-                    image_files = [f for f in files 
-                                  if f.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.tiff'))]
-                    if image_files:  # Only count directories with actual images
-                        info['class_distribution'][class_dir] = len(image_files)
-                        info['total_images'] += len(image_files)
-                except (PermissionError, FileNotFoundError):
-                    continue
-        
-        info['images_path_exists'] = images_found
-        
-        # Update num_classes based on image folders if prompts are missing
-        if not info['prompts_file_exists'] and images_found:
-            info['num_classes'] = len(info['class_distribution'])
-
-        # Check validity - we need images to proceed
-        is_valid = (info['dataset_path_exists'] and 
-                   info['images_path_exists'] and 
-                   info['total_images'] > 0)
+        # Dataset is valid if we have images
+        is_valid = info['total_images'] > 0
         
         return is_valid, info
     
-    def print_dataset_info(self):
-        """Print detailed information about the dataset"""
+    def print_info(self):
+        """Print dataset information"""
         is_valid, info = self.verify_dataset()
         
-        print("=" * 60)
-        print("DATASET INFORMATION")
+        print("\n" + "=" * 60)
+        print("PLANTWILD V2 DATASET INFORMATION")
         print("=" * 60)
         print(f"Dataset Valid: {'✅ YES' if is_valid else '❌ NO'}")
-        print(f"Dataset Path: {self.dataset_path}")
-        print(f"Images Path: {self.images_path}")
-        print(f"Prompts File Exists: {'✅' if info['prompts_file_exists'] else '❌'}")
-        print(f"Number of Classes: {info['num_classes']}")
-        print(f"Total Images: {info['total_images']}")
+        print(f"Dataset Path: {info.get('dataset_path', 'Not found')}")
+        print(f"Images Path: {info.get('images_path', 'Not found')}")
+        print(f"Prompts File: {'✅' if info.get('prompts_file_exists') else '❌'}")
+        print(f"Classes File: {'✅' if info.get('classes_file_exists') else '❌'}")
+        print(f"Number of Classes: {info.get('num_classes', 0)}")
+        print(f"Total Images: {info.get('total_images', 0)}")
         
-        if info['class_distribution']:
+        if info.get('class_distribution'):
             print("\nClass Distribution:")
             print("-" * 40)
             for class_name, count in sorted(info['class_distribution'].items()):
-                print(f"  {class_name:25s}: {count:4d} images")
+                print(f"  {class_name:30s}: {count:4d} images")
         
         print("=" * 60)
         
         return is_valid, info
 
-def debug_dataset_structure(base_path: str = "/content/plant_disease_data"):
-    """Debug function to show the actual dataset structure"""
-    print("🔍 DEBUGGING DATASET STRUCTURE")
-    print("=" * 60)
+def setup_plantwild_v2(drive_file_id: str, base_path: str = "/content/plant_disease_data"):
+    """
+    Complete setup for PlantWild v2 dataset
     
-    def show_directory_tree(path, max_depth=3, current_depth=0):
-        if current_depth > max_depth or not os.path.exists(path):
-            return
+    Args:
+        drive_file_id: Google Drive file ID for plantwild_v2.zip
+        base_path: Where to extract the dataset
         
-        indent = "  " * current_depth
-        print(f"{indent}{os.path.basename(path)}/")
-        
-        try:
-            items = os.listdir(path)[:10]  # Limit to first 10 items
-            for item in sorted(items):
-                item_path = os.path.join(path, item)
-                if os.path.isdir(item_path):
-                    show_directory_tree(item_path, max_depth, current_depth + 1)
-                else:
-                    print(f"{indent}  {item}")
-            if len(os.listdir(path)) > 10:
-                print(f"{indent}  ... ({len(os.listdir(path)) - 10} more items)")
-        except PermissionError:
-            print(f"{indent}  [Permission Denied]")
-    
-    show_directory_tree(base_path)
-    print("=" * 60)
-
-def setup_plantwild_dataset(base_path: str = "/content/plant_disease_data"):
-    """Specifically set up PlantWild dataset structure"""
-    print("Setting up PlantWild Dataset Structure")
-    print("=" * 50)
-    
-    # Debug the current structure
-    debug_dataset_structure(base_path)
-    
-    # Create dataset manager with explicit plantwild dataset name
-    dataset_manager = ColabDatasetManager(base_path=base_path, dataset_name="plantwild")
-    
-    print(f"📁 Dataset paths:")
-    print(f"   Base: {dataset_manager.base_path}")
-    print(f"   Dataset: {dataset_manager.dataset_path}")
-    print(f"   Images: {dataset_manager.images_path}")
-    
-    # Verify the setup
-    is_valid, info = dataset_manager.verify_dataset()
-    dataset_manager.print_dataset_info()
-    
-    return dataset_manager
-
-def setup_colab_environment():
-    """Set up the complete environment for Google Colab"""
-    
-    print("Setting up Cross-Attention Plant Disease Classification on Google Colab")
-    print("=" * 70)
-    
-    # Install required packages
-    print("📦 Installing required packages...")
-    os.system("pip install -q transformers torch torchvision torchaudio")
-    os.system("pip install -q gdown pyyaml matplotlib seaborn plotly")
-    os.system("pip install -q scikit-learn opencv-python albumentations")
-    os.system("pip install -q dataclasses-json tqdm")
-    
-    print("✅ Packages installed successfully!")
-    
-    # Create dataset manager
-    dataset_manager = ColabDatasetManager()
-    dataset_manager.setup_directories()
-    
-    print("\n📁 Dataset directories created")
-    print(f"   Base path: {dataset_manager.base_path}")
-    print(f"   Dataset path: {dataset_manager.dataset_path}")
-    print(f"   Images path: {dataset_manager.images_path}")
-    
-    return dataset_manager
-
-# Example usage functions for different data sources
-def load_from_google_drive(file_id: str):
+    Returns:
+        PlantWildV2Loader: Configured loader instance
     """
-    Load dataset from Google Drive
+    # Install gdown if needed
+    try:
+        import gdown
+    except ImportError:
+        print("📦 Installing gdown...")
+        os.system("pip install -q gdown")
+        import gdown
+    
+    # Create loader and download dataset
+    loader = PlantWildV2Loader(base_path)
+    
+    if loader.download_and_extract(drive_file_id):
+        loader.print_info()
+        return loader
+    else:
+        print("❌ Failed to setup dataset")
+        return None
+
+def quick_setup(drive_file_id: str):
+    """
+    One-liner setup for PlantWild v2
     
     Usage:
-        # Replace 'your_file_id' with actual Google Drive file ID
-        load_from_google_drive('your_file_id')
+        loader = quick_setup('your_google_drive_file_id')
     """
-    dataset_manager = ColabDatasetManager()
-    dataset_manager.setup_directories()
-    
-    zip_path = os.path.join(dataset_manager.base_path, "dataset.zip")
-    success = dataset_manager.download_from_google_drive(file_id, zip_path)
-    
-    if success:
-        dataset_manager.print_dataset_info()
-    
-    return dataset_manager
-
-def load_from_url(url: str):
-    """
-    Load dataset from direct URL
-    
-    Usage:
-        load_from_url('https://example.com/dataset.zip')
-    """
-    dataset_manager = ColabDatasetManager()
-    dataset_manager.setup_directories()
-    
-    filename = url.split('/')[-1]
-    zip_path = os.path.join(dataset_manager.base_path, filename)
-    success = dataset_manager.download_from_url(url, zip_path)
-    
-    if success:
-        dataset_manager.print_dataset_info()
-    
-    return dataset_manager
-
-def create_sample_for_testing():
-    """
-    Create a small sample dataset for testing the code
-    
-    Usage:
-        dataset_manager = create_sample_for_testing()
-    """
-    dataset_manager = ColabDatasetManager()
-    dataset_manager.setup_directories()
-    dataset_manager.create_sample_dataset(num_classes=3, samples_per_class=5)
-    dataset_manager.print_dataset_info()
-    
-    return dataset_manager
+    return setup_plantwild_v2(drive_file_id)
 
 if __name__ == "__main__":
-    # Example setup
-    dataset_manager = setup_colab_environment()
-    print("\n🚀 Environment setup complete!")
-    print("\nFor PlantWild dataset specifically, use:")
-    print("dataset_manager = setup_plantwild_dataset('/content/plant_disease_data')")
-    print("\nNext steps:")
-    print("1. Load your dataset using one of the methods above")
-    print("2. Verify the dataset with dataset_manager.print_dataset_info()")
-    print("3. Run the training script")
+    print("🚀 PlantWild v2 Dataset Loader")
+    print("Usage:")
+    print("  loader = quick_setup('your_google_drive_file_id')")
+    print("  # Replace 'your_google_drive_file_id' with actual file ID")
