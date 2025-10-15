@@ -11,7 +11,7 @@ import json
 # Import from local files
 from dataset_loader import PlantDiseaseDataset
 from cross_attention_model import CrossAttentionClassifier
-from trainer import CrossAttentionTrainer
+from trainer import Trainer
 from config_manager import ConfigManager
 
 def setup_training_from_loader(loader, config_overrides=None):
