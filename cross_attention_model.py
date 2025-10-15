@@ -22,7 +22,9 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        return x + self.pe[:x.size(0), :]
+        # Ensure positional encoding is on the same device as input
+        pe = self.pe[:x.size(0), :].to(x.device)
+        return x + pe
 
 class ImageEncoder(nn.Module):
     """Enhanced image encoder with patch-based features"""
